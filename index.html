@@ -284,17 +284,15 @@
         }
     }
 
-    // Ratel per partje
+    // Zachtere ratel per partje
     function playTickSound() {
         if (!soundEnabled) return;
         if (!audioCtx) {
             initAudioContext();
-            if (!audioCtx) {
-                return;
-            }
+            if (!audioCtx) return;
         }
 
-        const duration = 0.06;
+        const duration = 0.05;
         const sampleRate = audioCtx.sampleRate;
         const frameCount = Math.floor(sampleRate * duration);
         const buffer = audioCtx.createBuffer(1, frameCount, sampleRate);
@@ -302,8 +300,8 @@
 
         for (let i = 0; i < frameCount; i++) {
             const t = i / frameCount;
-            const envelope = Math.pow(1 - t, 3);
-            data[i] = (Math.random() * 2 - 1) * envelope * 0.7;
+            const envelope = Math.pow(1 - t, 2.2);
+            data[i] = (Math.random() * 2 - 1) * envelope * 0.35;
         }
 
         const source = audioCtx.createBufferSource();
@@ -311,7 +309,7 @@
 
         const gain = audioCtx.createGain();
         gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.002);
+        gain.gain.linearRampToValueAtTime(0.45, audioCtx.currentTime + 0.004);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
         source.connect(gain);
@@ -320,34 +318,31 @@
         source.start();
     }
 
-    // Zachtere gongachtige "plong" bij de winnaar
+    // Warmere gong bij de winnaar
     function playWinSound() {
         if (!soundEnabled) return;
         if (!audioCtx) {
             initAudioContext();
-            if (!audioCtx) {
-                return;
-            }
+            if (!audioCtx) return;
         }
 
         const now = audioCtx.currentTime;
-        const duration = 1.2;
+        const duration = 2.2;
 
         const osc1 = audioCtx.createOscillator();
         const osc2 = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
-        // Basisfrequenties voor een warme gongachtige klank
         osc1.type = "sine";
-        osc1.frequency.setValueAtTime(520, now);
-        osc1.frequency.exponentialRampToValueAtTime(380, now + duration * 0.7);
+        osc1.frequency.setValueAtTime(260, now);
+        osc1.frequency.exponentialRampToValueAtTime(220, now + 1.4);
 
         osc2.type = "sine";
-        osc2.frequency.setValueAtTime(780, now);
-        osc2.frequency.exponentialRampToValueAtTime(560, now + duration * 0.7);
+        osc2.frequency.setValueAtTime(520, now);
+        osc2.frequency.exponentialRampToValueAtTime(440, now + 1.4);
 
         gain.gain.setValueAtTime(0.0, now);
-        gain.gain.linearRampToValueAtTime(0.7, now + 0.05);
+        gain.gain.linearRampToValueAtTime(0.8, now + 0.1);
         gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
         osc1.connect(gain);
@@ -479,13 +474,12 @@
         drawPointer();
     }
 
-    // Pijl: pijlpunt + schacht, raakt het partje, niet de tekst
+    // Pijl: pijlpunt + schacht, net tegen de rand
     function drawPointer() {
         ctx.save();
         ctx.translate(centerX, centerY);
 
-        // Pijlpunt ligt net binnen de rand
-        const tipX = radius - radius * 0.05; // klein stukje binnen de rand
+        const tipX = radius - radius * 0.025; // klein stukje in het rad
         const arrowHeadLength = radius * 0.18;
         const arrowHeadWidth = radius * 0.16;
         const shaftLength = radius * 0.25;
@@ -493,9 +487,9 @@
 
         const headBaseX = tipX + arrowHeadLength;
 
-        // Pijlpunt (driehoek) wijst naar links, naar het rad
+        // Pijlpunt die naar links wijst, naar het rad
         ctx.beginPath();
-        ctx.moveTo(tipX, 0); // punt tegen het rad
+        ctx.moveTo(tipX, 0);
         ctx.lineTo(headBaseX, -arrowHeadWidth / 2);
         ctx.lineTo(headBaseX, arrowHeadWidth / 2);
         ctx.closePath();
@@ -506,7 +500,7 @@
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Schacht als rechthoek rechts van de pijlpunt
+        // Schacht rechts van de punt
         ctx.beginPath();
         ctx.rect(
             headBaseX,
