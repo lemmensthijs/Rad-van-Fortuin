@@ -286,73 +286,83 @@
 
     // Zachtere ratel per partje
     function playTickSound() {
-        if (!soundEnabled) return;
-        if (!audioCtx) {
-            initAudioContext();
-            if (!audioCtx) return;
-        }
+    if (!soundEnabled) return;
+    if (!audioCtx) {
+        initAudioContext();
+        if (!audioCtx) return;
+    }
 
-        const duration = 0.05;
-        const sampleRate = audioCtx.sampleRate;
-        const frameCount = Math.floor(sampleRate * duration);
-        const buffer = audioCtx.createBuffer(1, frameCount, sampleRate);
-        const data = buffer.getChannelData(0);
+    const duration = 0.04;
+    const sampleRate = audioCtx.sampleRate;
+    const frameCount = Math.floor(sampleRate * duration);
+    const buffer = audioCtx.createBuffer(1, frameCount, sampleRate);
+    const data = buffer.getChannelData(0);
 
-        for (let i = 0; i < frameCount; i++) {
-            const t = i / frameCount;
-            const envelope = Math.pow(1 - t, 2.2);
-            data[i] = (Math.random() * 2 - 1) * envelope * 0.35;
-        }
+    // Heel subtiele ruis met zachte envelope
+    for (let i = 0; i < frameCount; i++) {
+        const t = i / frameCount;
+        const envelope = Math.pow(1 - t, 2.5);
+        data[i] = (Math.random() * 2 - 1) * envelope * 0.18; // flink zachter
+    }
 
-        const source = audioCtx.createBufferSource();
-        source.buffer = buffer;
+    const source = audioCtx.createBufferSource();
+    source.buffer = buffer;
 
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.45, audioCtx.currentTime + 0.004);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.22, audioCtx.currentTime + 0.004);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
-        source.connect(gain);
-        gain.connect(audioCtx.destination);
+    source.connect(gain);
+    gain.connect(audioCtx.destination);
 
-        source.start();
+    source.start();
     }
 
     // Warmere gong bij de winnaar
     function playWinSound() {
-        if (!soundEnabled) return;
-        if (!audioCtx) {
-            initAudioContext();
-            if (!audioCtx) return;
-        }
+    if (!soundEnabled) return;
+    if (!audioCtx) {
+        initAudioContext();
+        if (!audioCtx) return;
+    }
 
-        const now = audioCtx.currentTime;
-        const duration = 2.2;
+    const now = audioCtx.currentTime;
+    const duration = 3.0; // wat langere nagalm voor gonggevoel
 
-        const osc1 = audioCtx.createOscillator();
-        const osc2 = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+    const gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0, now);
+    gain.gain.linearRampToValueAtTime(0.45, now + 0.08);  // niet te hard
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-        osc1.type = "sine";
-        osc1.frequency.setValueAtTime(260, now);
-        osc1.frequency.exponentialRampToValueAtTime(220, now + 1.4);
+    // Basisfrequentie voor de gong
+    const base = 220; // ongeveer lage A
 
-        osc2.type = "sine";
-        osc2.frequency.setValueAtTime(520, now);
-        osc2.frequency.exponentialRampToValueAtTime(440, now + 1.4);
+    // Inharmonische partials voor Aziatische gongklank
+    const freqs = [
+        base * 1.0,   // grondtoon
+        base * 1.48,  // iets onder kwint, geeft zweving
+        base * 2.05,  // inharmonisch boventoon
+        base * 2.8    // hogere metalen klank
+    ];
 
-        gain.gain.setValueAtTime(0.0, now);
-        gain.gain.linearRampToValueAtTime(0.8, now + 0.1);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    freqs.forEach((f, index) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = "sine";
+        // Kleine verschuiving in de tijd voor rijke aanslag
+        const startOffset = 0.01 * index;
+        const localStart = now + startOffset;
 
-        osc1.connect(gain);
-        osc2.connect(gain);
-        gain.connect(audioCtx.destination);
+        // Langzaam een beetje dalende toonhoogte
+        osc.frequency.setValueAtTime(f, localStart);
+        osc.frequency.exponentialRampToValueAtTime(f * 0.92, localStart + 1.5);
 
-        osc1.start(now);
-        osc2.start(now);
-        osc1.stop(now + duration);
-        osc2.stop(now + duration);
+        osc.connect(gain);
+        osc.start(localStart);
+        osc.stop(now + duration);
+    });
+
+    gain.connect(audioCtx.destination);
     }
 
     // Canvas grootte aanpassen aan beschikbare ruimte
