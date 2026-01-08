@@ -96,7 +96,7 @@
         }
 
         .control-group {
-            border: 1px mondig #333333;
+            border: 1px solid #333333;
             border-radius: 8px;
             padding: 10px;
             background: #111111;
@@ -104,7 +104,7 @@
 
         .control-group label {
             font-size: 0.9rem;
-            display: blok;
+            display: block;
             margin-bottom: 4px;
         }
 
@@ -210,6 +210,7 @@
             <h2>Instellingen rad</h2>
             <button id="toggleAutoDisableButton" class="secondary">Automatisch uitschakelen: uit</button>
             <button id="toggleSoundButton" class="secondary">Geluid: aan</button>
+            <button id="enableAllButton" class="secondary">Alle namen weer actief</button>
             <div class="status-label" id="statusText">Namen: 0, actief: 0</div>
         </div>
 
@@ -269,7 +270,7 @@
 
     let lastIndexAtPointer = -1;
 
-    // Audio voor ratelgeluid en pling
+    // Audio voor ratelgeluid en gong
     let audioCtx = null;
 
     function initAudioContext() {
@@ -302,7 +303,7 @@
         for (let i = 0; i < frameCount; i++) {
             const t = i / frameCount;
             const envelope = Math.pow(1 - t, 3);
-            data[i] = (Math.random() * 2 - 1) * envelope * 0.8;
+            data[i] = (Math.random() * 2 - 1) * envelope * 0.7;
         }
 
         const source = audioCtx.createBufferSource();
@@ -310,7 +311,7 @@
 
         const gain = audioCtx.createGain();
         gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.9, audioCtx.currentTime + 0.002);
+        gain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.002);
         gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
         source.connect(gain);
@@ -319,7 +320,7 @@
         source.start();
     }
 
-    // Zachte pling bij de winnaar
+    // Zachtere gongachtige "plong" bij de winnaar
     function playWinSound() {
         if (!soundEnabled) return;
         if (!audioCtx) {
@@ -330,24 +331,33 @@
         }
 
         const now = audioCtx.currentTime;
-        const duration = 0.5;
+        const duration = 1.2;
 
-        const osc = audioCtx.createOscillator();
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
 
-        osc.type = "sine";
-        osc.frequency.setValueAtTime(1400, now);
-        osc.frequency.exponentialRampToValueAtTime(2000, now + duration * 0.7);
+        // Basisfrequenties voor een warme gongachtige klank
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(520, now);
+        osc1.frequency.exponentialRampToValueAtTime(380, now + duration * 0.7);
+
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(780, now);
+        osc2.frequency.exponentialRampToValueAtTime(560, now + duration * 0.7);
 
         gain.gain.setValueAtTime(0.0, now);
-        gain.gain.linearRampToValueAtTime(0.5, now + 0.05);
+        gain.gain.linearRampToValueAtTime(0.7, now + 0.05);
         gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
 
-        osc.connect(gain);
+        osc1.connect(gain);
+        osc2.connect(gain);
         gain.connect(audioCtx.destination);
 
-        osc.start(now);
-        osc.stop(now + duration);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + duration);
+        osc2.stop(now + duration);
     }
 
     // Canvas grootte aanpassen aan beschikbare ruimte
@@ -436,385 +446,4 @@
             ctx.fillStyle = fillColor;
             ctx.fill();
 
-            ctx.strokeStyle = "#000000";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            const midAngle = (startAngle + endAngle) / 2;
-            const textRadius = radius * 0.65;
-
-            const textX = Math.cos(midAngle) * textRadius;
-            const textY = Math.sin(midAngle) * textRadius;
-
-            ctx.save();
-            ctx.translate(textX, textY);
-            ctx.rotate(midAngle);
-
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillStyle = "#000000";
-
-            const fontSize = Math.max(16, Math.floor(radius * 0.12));
-            ctx.font = "bold " + fontSize + "px system-ui";
-
-            const label = nameEntry.name;
-            const truncated = label.length > 18 ? label.slice(0, 17) + "…" : label;
-            ctx.fillText(truncated, 0, 0);
-
-            ctx.restore();
-        }
-
-        ctx.restore();
-
-        drawPointer();
-    }
-
-    // Grote, dikke, goudkleurige pijl die naar de gekozen naam wijst
-    function drawPointer() {
-        ctx.save();
-        ctx.translate(centerX, centerY);
-
-        const pointerLength = radius * 0.55;
-        const pointerWidth = radius * 0.35;
-
-        const baseX = radius * 0.65;
-
-        ctx.beginPath();
-        ctx.moveTo(baseX, 0);
-        ctx.lineTo(baseX + pointerLength, -pointerWidth / 2);
-        ctx.lineTo(baseX + pointerLength, pointerWidth / 2);
-        ctx.closePath();
-
-        ctx.fillStyle = "#ffd700";
-        ctx.fill();
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 4;
-        ctx.stroke();
-
-        ctx.restore();
-    }
-
-    // Huidige index bij de wijzer
-    function indexAtPointer(currentRotation) {
-        const n = names.length;
-        if (n === 0) return -1;
-        const segmentAngle = (Math.PI * 2) / n;
-
-        let raw = -currentRotation / segmentAngle;
-        let idx = Math.round(raw) % n;
-        if (idx < 0) {
-            idx += n;
-        }
-        return idx;
-    }
-
-    // Draaianimatie
-    function spinWheel() {
-        if (isSpinning) return;
-        if (names.length === 0) {
-            alert("Er zijn nog geen namen geladen.");
-            return;
-        }
-
-        const activeIndices = [];
-        names.forEach((n, index) => {
-            if (!n.disabled) {
-                activeIndices.push(index);
-            }
-        });
-
-        if (activeIndices.length === 0) {
-            alert("Alle namen zijn uitgeschakeld. Schakel minstens één naam in om te kunnen draaien.");
-            return;
-        }
-
-        isSpinning = true;
-
-        const chosenIndex = activeIndices[Math.floor(Math.random() * activeIndices.length)];
-        const segmentAngle = (Math.PI * 2) / names.length;
-
-        const targetCenterAngle = -chosenIndex * segmentAngle;
-        const extraTurns = 6 + Math.floor(Math.random() * 4);
-        const targetRotation = targetCenterAngle - extraTurns * Math.PI * 2;
-
-        const startRotation = rotation;
-        const rotationChange = targetRotation - startRotation;
-
-        const duration = 4500 + Math.random() * 2000;
-        const startTime = performance.now();
-
-        lastIndexAtPointer = indexAtPointer(rotation);
-
-        function easeOutCubic(t) {
-            return 1 - Math.pow(1 - t, 3);
-        }
-
-        function animate(now) {
-            const elapsed = now - startTime;
-            let t = elapsed / duration;
-            if (t > 1) t = 1;
-
-            const eased = easeOutCubic(t);
-            rotation = startRotation + rotationChange * eased;
-
-            const currentIndex = indexAtPointer(rotation);
-            if (currentIndex !== lastIndexAtPointer) {
-                playTickSound();
-                lastIndexAtPointer = currentIndex;
-            }
-
-            drawWheel();
-
-            if (t < 1) {
-                requestAnimationFrame(animate);
-            } else {
-                isSpinning = false;
-                const finalIndex = indexAtPointer(rotation);
-                showWinner(finalIndex);
-            }
-        }
-
-        requestAnimationFrame(animate);
-    }
-
-    function showWinner(index) {
-        if (index < 0 || index >= names.length) return;
-        const winner = names[index];
-        const winnerDisplay = document.getElementById("winnerDisplay");
-        winnerDisplay.textContent = winner.name;
-
-        playWinSound();
-
-        if (autoDisable && !winner.disabled) {
-            winner.disabled = true;
-            updateStatusLabel();
-            drawWheel();
-        }
-    }
-
-    // Klikken op het rad om een segment te toggelen
-    function onCanvasClick(event) {
-        if (names.length === 0) return;
-
-        const rect = canvas.getBoundingClientRect();
-        const x = event.clientX - rect.left - centerX;
-        const y = event.clientY - rect.top - centerY;
-        const distance = Math.sqrt(x * x + y * y);
-
-        if (distance > radius) {
-            return;
-        }
-
-        const angle = Math.atan2(y, x);
-        const n = names.length;
-        const segmentAngle = (Math.PI * 2) / n;
-
-        let relativeAngle = angle - rotation;
-        if (relativeAngle < 0) {
-            relativeAngle += Math.PI * 2;
-        }
-        relativeAngle = relativeAngle % (Math.PI * 2);
-
-        let index = Math.round(relativeAngle / segmentAngle) % n;
-        if (index < 0) index += n;
-
-        names[index].disabled = !names[index].disabled;
-        updateStatusLabel();
-        drawWheel();
-    }
-
-    // Namen uit .txt bestand laden
-    function loadNamesFromFile(file) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            const text = e.target.result;
-            const lines = text.split(/\r?\n/);
-            const newNames = [];
-            lines.forEach(line => {
-                const trimmed = line.trim();
-                if (trimmed.length > 0) {
-                    newNames.push({ name: trimmed, disabled: false });
-                }
-            });
-            if (newNames.length === 0) {
-                alert("Geen geldige namen gevonden in het bestand.");
-                return;
-            }
-            names = newNames;
-            rotation = 0;
-            document.getElementById("winnerDisplay").textContent = "Nog geen naam geselecteerd";
-            updateStatusLabel();
-            drawWheel();
-        };
-        reader.readAsText(file, "UTF-8");
-    }
-
-    // Naam handmatig toevoegen
-    function addNameFromInput() {
-        const input = document.getElementById("newNameInput");
-        const value = input.value.trim();
-        if (!value) return;
-        names.push({ name: value, disabled: false });
-        input.value = "";
-        updateStatusLabel();
-        drawWheel();
-    }
-
-    // Raden opslaan in localStorage
-    const STORAGE_KEY = "rad_van_fortuin_wielen";
-
-    function getStoredWheels() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (!raw) return {};
-            const parsed = JSON.parse(raw);
-            if (typeof parsed !== "object" || parsed === null) return {};
-            return parsed;
-        } catch (e) {
-            console.warn("Kon opgeslagen raderen niet lezen", e);
-            return {};
-        }
-    }
-
-    function saveStoredWheels(obj) {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
-        } catch (e) {
-            console.warn("Kon raderen niet opslaan", e);
-        }
-    }
-
-    function updateSavedWheelsSelect() {
-        const select = document.getElementById("savedWheelsSelect");
-        const wheels = getStoredWheels();
-
-        const currentValue = select.value;
-        select.innerHTML = "";
-        const emptyOption = document.createElement("option");
-        emptyOption.value = "";
-        emptyOption.textContent = "Geen rad geselecteerd";
-        select.appendChild(emptyOption);
-
-        Object.keys(wheels).sort().forEach(key => {
-            const opt = document.createElement("option");
-            opt.value = key;
-            opt.textContent = key;
-            select.appendChild(opt);
-        });
-
-        if (currentValue && wheels[currentValue]) {
-            select.value = currentValue;
-        }
-    }
-
-    function saveCurrentWheel() {
-        if (names.length === 0) {
-            alert("Er zijn nog geen namen om op te slaan.");
-            return;
-        }
-
-        const defaultName = "Rad " + new Date().toLocaleString();
-        const wheelName = prompt("Geef een naam aan dit rad:", defaultName);
-        if (!wheelName) return;
-
-        const wheels = getStoredWheels();
-        wheels[wheelName] = {
-            names: names
-        };
-        saveStoredWheels(wheels);
-        updateSavedWheelsSelect();
-        alert("Rad opgeslagen als: " + wheelName);
-    }
-
-    function loadSelectedWheel() {
-        const select = document.getElementById("savedWheelsSelect");
-        const key = select.value;
-        if (!key) {
-            alert("Kies eerst een rad uit de lijst.");
-            return;
-        }
-        const wheels = getStoredWheels();
-        const wheel = wheels[key];
-        if (!wheel || !Array.isArray(wheel.names)) {
-            alert("Gekozen rad kon niet worden geladen.");
-            return;
-        }
-        names = wheel.names.map(n => ({
-            name: String(n.name),
-            disabled: Boolean(n.disabled)
-        }));
-        rotation = 0;
-        document.getElementById("winnerDisplay").textContent = "Nog geen naam geselecteerd";
-        updateStatusLabel();
-        drawWheel();
-    }
-
-    // Event handlers en initialisatie
-    document.addEventListener("DOMContentLoaded", function () {
-        canvas = document.getElementById("wheelCanvas");
-        ctx = canvas.getContext("2d");
-
-        window.addEventListener("resize", resizeCanvas);
-        canvas.addEventListener("click", onCanvasClick);
-
-        document.getElementById("spinButton").addEventListener("click", function () {
-            spinWheel();
-        });
-
-        document.addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-                const active = document.activeElement;
-                if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
-                    return;
-                }
-                spinWheel();
-            }
-        });
-
-        document.getElementById("fileInput").addEventListener("change", function (e) {
-            const file = e.target.files[0];
-            if (file) {
-                loadNamesFromFile(file);
-            }
-        });
-
-        document.getElementById("addNameButton").addEventListener("click", function () {
-            addNameFromInput();
-        });
-
-        document.getElementById("newNameInput").addEventListener("keydown", function (e) {
-            if (e.key === "Enter") {
-                addNameFromInput();
-            }
-        });
-
-        document.getElementById("toggleSoundButton").addEventListener("click", function () {
-            soundEnabled = !soundEnabled;
-            const btn = this;
-            btn.textContent = "Geluid: " + (soundEnabled ? "aan" : "uit");
-            if (soundEnabled) {
-                initAudioContext();
-            }
-        });
-
-        document.getElementById("toggleAutoDisableButton").addEventListener("click", function () {
-            autoDisable = !autoDisable;
-            const btn = this;
-            btn.textContent = "Automatisch uitschakelen: " + (autoDisable ? "aan" : "uit");
-        });
-
-        document.getElementById("saveWheelButton").addEventListener("click", function () {
-            saveCurrentWheel();
-        });
-
-        document.getElementById("loadWheelButton").addEventListener("click", function () {
-            loadSelectedWheel();
-        });
-
-        updateSavedWheelsSelect();
-        updateStatusLabel();
-        resizeCanvas();
-    });
-</script>
-</body>
-</html>
+            ctx.
