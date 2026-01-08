@@ -39,19 +39,45 @@
 
         #winnerDisplay {
             margin-top: 16px;
-            font-size: 2rem;
+            font-size: 6rem; /* ongeveer drie keer zo groot als 2rem */
             text-align: center;
-            min-height: 2.5em;
+            min-height: 1.2em;
             padding: 8px 16px;
             border-radius: 8px;
             border: 1px solid #444444;
             background: #111111;
             box-sizing: border-box;
             width: 100%;
-            max-width: 600px;
+            max-width: 900px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .spin-main {
+            margin-top: 16px;
+            padding: 14px 24px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            width: 260px;
+            max-width: 80%;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            background: #2d7dd2;
+            color: #ffffff;
+            box-shadow: 0 0 20px rgba(45, 125, 210, 0.7);
+            transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+        }
+
+        .spin-main:hover {
+            background: #2564a8;
+            box-shadow: 0 0 26px rgba(45, 125, 210, 0.9);
+        }
+
+        .spin-main:active {
+            transform: scale(0.97);
+            box-shadow: 0 0 14px rgba(45, 125, 210, 0.7);
         }
 
         .controls {
@@ -166,6 +192,9 @@
             .control-group {
                 flex: 1 1 180px;
             }
+            #winnerDisplay {
+                font-size: 3rem;
+            }
         }
     </style>
 </head>
@@ -174,11 +203,11 @@
     <div class="left-panel">
         <canvas id="wheelCanvas"></canvas>
         <div id="winnerDisplay">Nog geen naam geselecteerd</div>
+        <button id="spinButton" class="spin-main">Draaien</button>
     </div>
     <div class="controls">
         <div class="control-group">
-            <h2>Rad bedienen</h2>
-            <button id="spinButton">Draaien</button>
+            <h2>Instellingen rad</h2>
             <button id="toggleAutoDisableButton" class="secondary">Automatisch uitschakelen: uit</button>
             <button id="toggleSoundButton" class="secondary">Geluid: aan</button>
             <div class="status-label" id="statusText">Namen: 0, actief: 0</div>
@@ -218,7 +247,8 @@
             <div class="small-note">
                 Klik op een partje om een persoon uit of aan te zetten.  
                 Grijze partjes worden niet meer gekozen.  
-                Met automatisch uitschakelen worden gekozen namen na het draaien automatisch uitgeschakeld.
+                Met automatisch uitschakelen worden gekozen namen na het draaien automatisch uitgeschakeld.  
+                Je kunt ook op Enter drukken om het rad te draaien.
             </div>
         </div>
     </div>
@@ -253,6 +283,7 @@
         }
     }
 
+    // Meer percussief, ratelend tikje per partje
     function playTickSound() {
         if (!soundEnabled) return;
         if (!audioCtx) {
@@ -262,34 +293,44 @@
             }
         }
 
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
+        const duration = 0.06;
+        const sampleRate = audioCtx.sampleRate;
+        const frameCount = Math.floor(sampleRate * duration);
+        const buffer = audioCtx.createBuffer(1, frameCount, sampleRate);
+        const data = buffer.getChannelData(0);
+
+        for (let i = 0; i < frameCount; i++) {
+            const t = i / frameCount;
+            // witte ruis met snelle envelope, geeft een 'tik'
+            const envelope = Math.pow(1 - t, 3);
+            data[i] = (Math.random() * 2 - 1) * envelope * 0.8;
+        }
+
+        const source = audioCtx.createBufferSource();
+        source.buffer = buffer;
+
         const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.9, audioCtx.currentTime + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
-        // Kort klikachtig geluid
-        osc.type = "square";
-        osc.frequency.setValueAtTime(2800, now);
-
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.4, now + 0.003);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-
-        osc.connect(gain);
+        source.connect(gain);
         gain.connect(audioCtx.destination);
 
-        osc.start(now);
-        osc.stop(now + 0.1);
+        source.start();
     }
 
     // Canvas grootte aanpassen aan beschikbare ruimte
     function resizeCanvas() {
         const leftPanel = document.querySelector(".left-panel");
         const winnerDisplay = document.getElementById("winnerDisplay");
+        const spinButtonEl = document.getElementById("spinButton");
 
         const panelWidth = leftPanel.clientWidth;
         const panelHeight = leftPanel.clientHeight;
 
-        const availableHeight = panelHeight - winnerDisplay.offsetHeight - 32;
+        const reservedHeight = winnerDisplay.offsetHeight + spinButtonEl.offsetHeight + 48;
+        const availableHeight = panelHeight - reservedHeight;
 
         const size = Math.min(panelWidth - 16, availableHeight);
         const safeSize = Math.max(size, 100);
@@ -299,7 +340,7 @@
 
         centerX = canvas.width / 2;
         centerY = canvas.height / 2;
-        radius = Math.min(centerX, centerY) - 10;
+        radius = Math.min(centerX, centerY) - 16;
 
         drawWheel();
     }
@@ -356,7 +397,6 @@
                 fillColor = "#555555";
             } else {
                 const hue = (i * 360 / segmentCount) % 360;
-                // Niet te fel: redelijk midden in saturatie en lichtheid
                 fillColor = "hsl(" + hue + ", 60%, 55%)";
             }
 
@@ -381,16 +421,17 @@
 
             ctx.save();
             ctx.translate(textX, textY);
-            ctx.rotate(midAngle);
+            ctx.rotate(midAngle); // laat de tekst meedraaien met het segment
+
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillStyle = "#000000";
-            ctx.font = "bold 14px system-ui";
 
-            // Tekst licht draaien terug zodat hij wat leesbaarder is
-            ctx.rotate(-midAngle);
+            // Dynamische lettergrootte voor betere leesbaarheid
+            const fontSize = Math.max(16, Math.floor(radius * 0.12));
+            ctx.font = "bold " + fontSize + "px system-ui";
+
             const label = nameEntry.name;
-            // Eventueel iets inkorten als de naam erg lang is
             const truncated = label.length > 18 ? label.slice(0, 17) + "…" : label;
             ctx.fillText(truncated, 0, 0);
 
@@ -402,24 +443,24 @@
         drawPointer();
     }
 
-    // Wijzer aan de rechterkant
+    // Wijzer aan de rechterkant, duidelijk groter en goudkleurig
     function drawPointer() {
         ctx.save();
         ctx.translate(centerX, centerY);
 
-        const pointerLength = 30;
-        const pointerWidth = 24;
+        const pointerLength = 90;
+        const pointerWidth = 50;
 
         ctx.beginPath();
-        ctx.moveTo(radius + 10, 0);
-        ctx.lineTo(radius + 10 + pointerLength, -pointerWidth / 2);
-        ctx.lineTo(radius + 10 + pointerLength, pointerWidth / 2);
+        ctx.moveTo(radius + 16, 0);
+        ctx.lineTo(radius + 16 + pointerLength, -pointerWidth / 2);
+        ctx.lineTo(radius + 16 + pointerLength, pointerWidth / 2);
         ctx.closePath();
 
-        ctx.fillStyle = "#f5c400";
+        ctx.fillStyle = "#ffd700"; // goudkleurig
         ctx.fill();
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 3;
         ctx.stroke();
 
         ctx.restore();
@@ -466,13 +507,13 @@
 
         // Doelrotatie zodat de gekozen index bij de wijzer uitkomt
         const targetCenterAngle = -chosenIndex * segmentAngle;
-        const extraTurns = 3 + Math.floor(Math.random() * 3); // 3 tot en met 5 extra rondes
+        const extraTurns = 6 + Math.floor(Math.random() * 4); // 6 tot en met 9 extra rondes
         const targetRotation = targetCenterAngle - extraTurns * Math.PI * 2;
 
         const startRotation = rotation;
         const rotationChange = targetRotation - startRotation;
 
-        const duration = 3500 + Math.random() * 1500; // 3.5 tot 5 seconden
+        const duration = 4500 + Math.random() * 2000; // 4.5 tot 6.5 seconden
         const startTime = performance.now();
 
         lastIndexAtPointer = indexAtPointer(rotation);
@@ -690,8 +731,20 @@
         window.addEventListener("resize", resizeCanvas);
         canvas.addEventListener("click", onCanvasClick);
 
+        // Grote draaiknop
         document.getElementById("spinButton").addEventListener("click", function () {
             spinWheel();
+        });
+
+        // Enter toets om te draaien, behalve als je in een invoerveld zit
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                const active = document.activeElement;
+                if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+                    return;
+                }
+                spinWheel();
+            }
         });
 
         document.getElementById("fileInput").addEventListener("change", function (e) {
