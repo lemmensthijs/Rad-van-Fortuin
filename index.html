@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Rad van Fortuin Namenkiezer</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: #000000;
+            color: #ffffff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: row;
+            height: 100vh;
+            box-sizing: border-box;
+            padding: 16px;
+            gap: 16px;
+        }
+
+        .left-panel {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        #wheelCanvas {
+            background: #000000;
+            display: block;
+            max-width: 100%;
+        }
+
+        #winnerDisplay {
+            margin-top: 16px;
+            font-size: 2rem;
+            text-align: center;
+            min-height: 2.5em;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #444444;
+            background: #111111;
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 600px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .controls {
+            width: 260px;
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border-left: 1px solid #333333;
+            padding-left: 16px;
+        }
+
+        .controls h2 {
+            margin: 0 0 8px 0;
+            font-size: 1.1rem;
+        }
+
+        .control-group {
+            border: 1px solid #333333;
+            border-radius: 8px;
+            padding: 10px;
+            background: #111111;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .control-group input[type="text"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid #444444;
+            background: #222222;
+            color: #ffffff;
+        }
+
+        .control-group input[type="file"] {
+            width: 100%;
+            font-size: 0.85rem;
+        }
+
+        button {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            background: #2d7dd2;
+            color: #ffffff;
+            transition: background 0.15s ease, transform 0.05s ease;
+        }
+
+        button:hover {
+            background: #2564a8;
+        }
+
+        button:active {
+            transform: scale(0.97);
+        }
+
+        button.secondary {
+            background: #444444;
+        }
+
+        button.secondary:hover {
+            background: #555555;
+        }
+
+        select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 6px 8px;
+            border-radius: 4px;
+            border: 1px solid #444444;
+            background: #222222;
+            color: #ffffff;
+            font-size: 0.9rem;
+        }
+
+        .small-note {
+            font-size: 0.8rem;
+            color: #bbbbbb;
+            margin-top: 6px;
+        }
+
+        .status-label {
+            font-size: 0.85rem;
+            margin-top: 4px;
+            color: #cccccc;
+        }
+
+        @media (max-width: 900px) {
+            #app {
+                flex-direction: column;
+            }
+            .controls {
+                width: 100%;
+                border-left: none;
+                border-top: 1px solid #333333;
+                padding-left: 0;
+                padding-top: 12px;
+                flex-direction: row;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+            .control-group {
+                flex: 1 1 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="left-panel">
+        <canvas id="wheelCanvas"></canvas>
+        <div id="winnerDisplay">Nog geen naam geselecteerd</div>
+    </div>
+    <div class="controls">
+        <div class="control-group">
+            <h2>Rad bedienen</h2>
+            <button id="spinButton">Draaien</button>
+            <button id="toggleAutoDisableButton" class="secondary">Automatisch uitschakelen: uit</button>
+            <button id="toggleSoundButton" class="secondary">Geluid: aan</button>
+            <div class="status-label" id="statusText">Namen: 0, actief: 0</div>
+        </div>
+
+        <div class="control-group">
+            <h2>Namen laden</h2>
+            <label for="fileInput">Tekstbestand met namen (.txt)</label>
+            <input type="file" id="fileInput" accept=".txt,text/plain">
+            <div class="small-note">
+                Gebruik een .txt bestand met per regel één naam.
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h2>Naam toevoegen</h2>
+            <label for="newNameInput">Nieuwe naam</label>
+            <input type="text" id="newNameInput" placeholder="Typ een naam">
+            <button id="addNameButton">Naam toevoegen aan rad</button>
+        </div>
+
+        <div class="control-group">
+            <h2>Rad opslaan en laden</h2>
+            <button id="saveWheelButton">Huidig rad opslaan</button>
+            <label for="savedWheelsSelect">Bewaarde raderen</label>
+            <select id="savedWheelsSelect">
+                <option value="">Geen rad geselecteerd</option>
+            </select>
+            <button id="loadWheelButton" class="secondary">Geselecteerd rad laden</button>
+            <div class="small-note">
+                Raderen worden opgeslagen in deze browser op dit apparaat.
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h2>Uitleg</h2>
+            <div class="small-note">
+                Klik op een partje om een persoon uit of aan te zetten.  
+                Grijze partjes worden niet meer gekozen.  
+                Met automatisch uitschakelen worden gekozen namen na het draaien automatisch uitgeschakeld.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Globale toestand
+    let names = []; // array van { name: string, disabled: boolean }
+    let rotation = 0; // huidige rotatie in radialen
+    let isSpinning = false;
+    let soundEnabled = true;
+    let autoDisable = false;
+
+    let canvas, ctx;
+    let centerX = 0;
+    let centerY = 0;
+    let radius = 0;
+
+    let lastIndexAtPointer = -1;
+
+    // Audio voor ratelgeluid
+    let audioCtx = null;
+
+    function initAudioContext() {
+        if (!audioCtx) {
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.warn("AudioContext niet beschikbaar", e);
+                audioCtx = null;
+            }
+        }
+    }
+
+    function playTickSound() {
+        if (!soundEnabled) return;
+        if (!audioCtx) {
+            initAudioContext();
+            if (!audioCtx) {
+                return;
+            }
+        }
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        // Kort klikachtig geluid
+        osc.type = "square";
+        osc.frequency.setValueAtTime(2800, now);
+
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.4, now + 0.003);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.1);
+    }
+
+    // Canvas grootte aanpassen aan beschikbare ruimte
+    function resizeCanvas() {
+        const leftPanel = document.querySelector(".left-panel");
+        const winnerDisplay = document.getElementById("winnerDisplay");
+
+        const panelWidth = leftPanel.clientWidth;
+        const panelHeight = leftPanel.clientHeight;
+
+        const availableHeight = panelHeight - winnerDisplay.offsetHeight - 32;
+
+        const size = Math.min(panelWidth - 16, availableHeight);
+        const safeSize = Math.max(size, 100);
+
+        canvas.width = safeSize;
+        canvas.height = safeSize;
+
+        centerX = canvas.width / 2;
+        centerY = canvas.height / 2;
+        radius = Math.min(centerX, centerY) - 10;
+
+        drawWheel();
+    }
+
+    function getActiveNamesCount() {
+        return names.filter(n => !n.disabled).length;
+    }
+
+    function updateStatusLabel() {
+        const statusText = document.getElementById("statusText");
+        statusText.textContent = "Namen: " + names.length + ", actief: " + getActiveNamesCount();
+    }
+
+    // Rad tekenen
+    function drawWheel() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (names.length === 0) {
+            // Geen namen, alleen rand
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = "#444444";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = "#666666";
+            ctx.font = "16px system-ui";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText("Geen namen geladen", 0, 0);
+            ctx.restore();
+
+            drawPointer();
+            return;
+        }
+
+        const segmentCount = names.length;
+        const segmentAngle = (Math.PI * 2) / segmentCount;
+
+        ctx.save();
+        ctx.translate(centerX, centerY);
+
+        for (let i = 0; i < segmentCount; i++) {
+            const nameEntry = names[i];
+            const startAngle = i * segmentAngle - segmentAngle / 2 + rotation;
+            const endAngle = startAngle + segmentAngle;
+
+            // Kleuren voor actieve segmenten
+            let fillColor;
+            if (nameEntry.disabled) {
+                fillColor = "#555555";
+            } else {
+                const hue = (i * 360 / segmentCount) % 360;
+                // Niet te fel: redelijk midden in saturatie en lichtheid
+                fillColor = "hsl(" + hue + ", 60%, 55%)";
+            }
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.arc(0, 0, radius, startAngle, endAngle);
+            ctx.closePath();
+
+            ctx.fillStyle = fillColor;
+            ctx.fill();
+
+            ctx.strokeStyle = "#000000";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Naam tekenen
+            const midAngle = (startAngle + endAngle) / 2;
+            const textRadius = radius * 0.65;
+
+            const textX = Math.cos(midAngle) * textRadius;
+            const textY = Math.sin(midAngle) * textRadius;
+
+            ctx.save();
+            ctx.translate(textX, textY);
+            ctx.rotate(midAngle);
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillStyle = "#000000";
+            ctx.font = "bold 14px system-ui";
+
+            // Tekst licht draaien terug zodat hij wat leesbaarder is
+            ctx.rotate(-midAngle);
+            const label = nameEntry.name;
+            // Eventueel iets inkorten als de naam erg lang is
+            const truncated = label.length > 18 ? label.slice(0, 17) + "…" : label;
+            ctx.fillText(truncated, 0, 0);
+
+            ctx.restore();
+        }
+
+        ctx.restore();
+
+        drawPointer();
+    }
+
+    // Wijzer aan de rechterkant
+    function drawPointer() {
+        ctx.save();
+        ctx.translate(centerX, centerY);
+
+        const pointerLength = 30;
+        const pointerWidth = 24;
+
+        ctx.beginPath();
+        ctx.moveTo(radius + 10, 0);
+        ctx.lineTo(radius + 10 + pointerLength, -pointerWidth / 2);
+        ctx.lineTo(radius + 10 + pointerLength, pointerWidth / 2);
+        ctx.closePath();
+
+        ctx.fillStyle = "#f5c400";
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
+    // Huidige index bij de wijzer
+    function indexAtPointer(currentRotation) {
+        const n = names.length;
+        if (n === 0) return -1;
+        const segmentAngle = (Math.PI * 2) / n;
+
+        let raw = -currentRotation / segmentAngle;
+        let idx = Math.round(raw) % n;
+        if (idx < 0) {
+            idx += n;
+        }
+        return idx;
+    }
+
+    // Draaianimatie
+    function spinWheel() {
+        if (isSpinning) return;
+        if (names.length === 0) {
+            alert("Er zijn nog geen namen geladen.");
+            return;
+        }
+
+        const activeIndices = [];
+        names.forEach((n, index) => {
+            if (!n.disabled) {
+                activeIndices.push(index);
+            }
+        });
+
+        if (activeIndices.length === 0) {
+            alert("Alle namen zijn uitgeschakeld. Schakel minstens één naam in om te kunnen draaien.");
+            return;
+        }
+
+        isSpinning = true;
+
+        const chosenIndex = activeIndices[Math.floor(Math.random() * activeIndices.length)];
+        const segmentAngle = (Math.PI * 2) / names.length;
+
+        // Doelrotatie zodat de gekozen index bij de wijzer uitkomt
+        const targetCenterAngle = -chosenIndex * segmentAngle;
+        const extraTurns = 3 + Math.floor(Math.random() * 3); // 3 tot en met 5 extra rondes
+        const targetRotation = targetCenterAngle - extraTurns * Math.PI * 2;
+
+        const startRotation = rotation;
+        const rotationChange = targetRotation - startRotation;
+
+        const duration = 3500 + Math.random() * 1500; // 3.5 tot 5 seconden
+        const startTime = performance.now();
+
+        lastIndexAtPointer = indexAtPointer(rotation);
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function animate(now) {
+            const elapsed = now - startTime;
+            let t = elapsed / duration;
+            if (t > 1) t = 1;
+
+            const eased = easeOutCubic(t);
+            rotation = startRotation + rotationChange * eased;
+
+            const currentIndex = indexAtPointer(rotation);
+            if (currentIndex !== lastIndexAtPointer) {
+                // Iedere keer dat we een segmentgrens passeren tikt het wijzertje
+                playTickSound();
+                lastIndexAtPointer = currentIndex;
+            }
+
+            drawWheel();
+
+            if (t < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                isSpinning = false;
+                const finalIndex = indexAtPointer(rotation);
+                showWinner(finalIndex);
+            }
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    function showWinner(index) {
+        if (index < 0 || index >= names.length) return;
+        const winner = names[index];
+        const winnerDisplay = document.getElementById("winnerDisplay");
+        winnerDisplay.textContent = winner.name;
+
+        if (autoDisable && !winner.disabled) {
+            winner.disabled = true;
+            updateStatusLabel();
+            drawWheel();
+        }
+    }
+
+    // Klikken op het rad om een segment te toggelen
+    function onCanvasClick(event) {
+        if (names.length === 0) return;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left - centerX;
+        const y = event.clientY - rect.top - centerY;
+        const distance = Math.sqrt(x * x + y * y);
+
+        if (distance > radius) {
+            return; // buiten het rad
+        }
+
+        const angle = Math.atan2(y, x); // in canvascoordinaten
+        const n = names.length;
+        const segmentAngle = (Math.PI * 2) / n;
+
+        // Terugrekenen naar hoek in radcoordinaten
+        let relativeAngle = angle - rotation;
+        if (relativeAngle < 0) {
+            relativeAngle += Math.PI * 2;
+        }
+        relativeAngle = relativeAngle % (Math.PI * 2);
+
+        let index = Math.round(relativeAngle / segmentAngle) % n;
+        if (index < 0) index += n;
+
+        names[index].disabled = !names[index].disabled;
+        updateStatusLabel();
+        drawWheel();
+    }
+
+    // Namen uit .txt bestand laden
+    function loadNamesFromFile(file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const text = e.target.result;
+            const lines = text.split(/\r?\n/);
+            const newNames = [];
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (trimmed.length > 0) {
+                    newNames.push({ name: trimmed, disabled: false });
+                }
+            });
+            if (newNames.length === 0) {
+                alert("Geen geldige namen gevonden in het bestand.");
+                return;
+            }
+            names = newNames;
+            rotation = 0;
+            document.getElementById("winnerDisplay").textContent = "Nog geen naam geselecteerd";
+            updateStatusLabel();
+            drawWheel();
+        };
+        reader.readAsText(file, "UTF-8");
+    }
+
+    // Naam handmatig toevoegen
+    function addNameFromInput() {
+        const input = document.getElementById("newNameInput");
+        const value = input.value.trim();
+        if (!value) return;
+        names.push({ name: value, disabled: false });
+        input.value = "";
+        updateStatusLabel();
+        drawWheel();
+    }
+
+    // Raden opslaan in localStorage
+    const STORAGE_KEY = "rad_van_fortuin_wielen";
+
+    function getStoredWheels() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            if (typeof parsed !== "object" || parsed === null) return {};
+            return parsed;
+        } catch (e) {
+            console.warn("Kon opgeslagen raderen niet lezen", e);
+            return {};
+        }
+    }
+
+    function saveStoredWheels(obj) {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+        } catch (e) {
+            console.warn("Kon raderen niet opslaan", e);
+        }
+    }
+
+    function updateSavedWheelsSelect() {
+        const select = document.getElementById("savedWheelsSelect");
+        const wheels = getStoredWheels();
+
+        const currentValue = select.value;
+        select.innerHTML = "";
+        const emptyOption = document.createElement("option");
+        emptyOption.value = "";
+        emptyOption.textContent = "Geen rad geselecteerd";
+        select.appendChild(emptyOption);
+
+        Object.keys(wheels).sort().forEach(key => {
+            const opt = document.createElement("option");
+            opt.value = key;
+            opt.textContent = key;
+            select.appendChild(opt);
+        });
+
+        if (currentValue && wheels[currentValue]) {
+            select.value = currentValue;
+        }
+    }
+
+    function saveCurrentWheel() {
+        if (names.length === 0) {
+            alert("Er zijn nog geen namen om op te slaan.");
+            return;
+        }
+
+        const defaultName = "Rad " + new Date().toLocaleString();
+        const wheelName = prompt("Geef een naam aan dit rad:", defaultName);
+        if (!wheelName) return;
+
+        const wheels = getStoredWheels();
+        wheels[wheelName] = {
+            names: names
+        };
+        saveStoredWheels(wheels);
+        updateSavedWheelsSelect();
+        alert("Rad opgeslagen als: " + wheelName);
+    }
+
+    function loadSelectedWheel() {
+        const select = document.getElementById("savedWheelsSelect");
+        const key = select.value;
+        if (!key) {
+            alert("Kies eerst een rad uit de lijst.");
+            return;
+        }
+        const wheels = getStoredWheels();
+        const wheel = wheels[key];
+        if (!wheel || !Array.isArray(wheel.names)) {
+            alert("Gekozen rad kon niet worden geladen.");
+            return;
+        }
+        // Diepe kopie van namen
+        names = wheel.names.map(n => ({
+            name: String(n.name),
+            disabled: Boolean(n.disabled)
+        }));
+        rotation = 0;
+        document.getElementById("winnerDisplay").textContent = "Nog geen naam geselecteerd";
+        updateStatusLabel();
+        drawWheel();
+    }
+
+    // Event handlers en initialisatie
+    document.addEventListener("DOMContentLoaded", function () {
+        canvas = document.getElementById("wheelCanvas");
+        ctx = canvas.getContext("2d");
+
+        window.addEventListener("resize", resizeCanvas);
+        canvas.addEventListener("click", onCanvasClick);
+
+        document.getElementById("spinButton").addEventListener("click", function () {
+            spinWheel();
+        });
+
+        document.getElementById("fileInput").addEventListener("change", function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                loadNamesFromFile(file);
+            }
+        });
+
+        document.getElementById("addNameButton").addEventListener("click", function () {
+            addNameFromInput();
+        });
+
+        document.getElementById("newNameInput").addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                addNameFromInput();
+            }
+        });
+
+        document.getElementById("toggleSoundButton").addEventListener("click", function () {
+            soundEnabled = !soundEnabled;
+            const btn = this;
+            btn.textContent = "Geluid: " + (soundEnabled ? "aan" : "uit");
+            if (soundEnabled) {
+                initAudioContext();
+            }
+        });
+
+        document.getElementById("toggleAutoDisableButton").addEventListener("click", function () {
+            autoDisable = !autoDisable;
+            const btn = this;
+            btn.textContent = "Automatisch uitschakelen: " + (autoDisable ? "aan" : "uit");
+        });
+
+        document.getElementById("saveWheelButton").addEventListener("click", function () {
+            saveCurrentWheel();
+        });
+
+        document.getElementById("loadWheelButton").addEventListener("click", function () {
+            loadSelectedWheel();
+        });
+
+        updateSavedWheelsSelect();
+        updateStatusLabel();
+        resizeCanvas();
+    });
+</script>
+</body>
+</html>
