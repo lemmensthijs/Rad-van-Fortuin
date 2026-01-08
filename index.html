@@ -319,7 +319,7 @@
     source.start();
     }
 
-    // Warmere gong bij de winnaar
+    // Geluid bij kiezen winnaar
     function playWinSound() {
     if (!soundEnabled) return;
     if (!audioCtx) {
@@ -328,42 +328,37 @@
     }
 
     const now = audioCtx.currentTime;
-    const duration = 3.0; // wat langere nagalm voor gonggevoel
 
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0.0, now);
-    gain.gain.linearRampToValueAtTime(0.45, now + 0.08);  // niet te hard
-    gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
-
-    // Basisfrequentie voor de gong
-    const base = 220; // ongeveer lage A
-
-    // Inharmonische partials voor Aziatische gongklank
-    const freqs = [
-        base * 1.0,   // grondtoon
-        base * 1.48,  // iets onder kwint, geeft zweving
-        base * 2.05,  // inharmonisch boventoon
-        base * 2.8    // hogere metalen klank
+    // Drie zachte, oplopende klokjes
+    const notes = [
+        { freq: 523, delay: 0.00 }, // ongeveer C5
+        { freq: 659, delay: 0.10 }, // ongeveer E5
+        { freq: 784, delay: 0.20 }  // ongeveer G5
     ];
 
-    freqs.forEach((f, index) => {
+    notes.forEach(note => {
         const osc = audioCtx.createOscillator();
-        osc.type = "sine";
-        // Kleine verschuiving in de tijd voor rijke aanslag
-        const startOffset = 0.01 * index;
-        const localStart = now + startOffset;
+        const gain = audioCtx.createGain();
 
-        // Langzaam een beetje dalende toonhoogte
-        osc.frequency.setValueAtTime(f, localStart);
-        osc.frequency.exponentialRampToValueAtTime(f * 0.92, localStart + 1.5);
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(note.freq, now + note.delay);
+
+        // Zachte, korte pling
+        const startTime = now + note.delay;
+        const endTime = startTime + 0.35;
+
+        gain.gain.setValueAtTime(0.0, startTime);
+        gain.gain.linearRampToValueAtTime(0.35, startTime + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, endTime);
 
         osc.connect(gain);
-        osc.start(localStart);
-        osc.stop(now + duration);
-    });
+        gain.connect(audioCtx.destination);
 
-    gain.connect(audioCtx.destination);
-    }
+        osc.start(startTime);
+        osc.stop(endTime);
+    });
+}
+
 
     // Canvas grootte aanpassen aan beschikbare ruimte
     function resizeCanvas() {
