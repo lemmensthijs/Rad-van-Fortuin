@@ -329,11 +329,11 @@
 
     const now = audioCtx.currentTime;
 
-    // Drie zachte, oplopende klokjes
+    // Hoog → midden → laag
     const notes = [
-        { freq: 523, delay: 0.00 }, // ongeveer C5
-        { freq: 659, delay: 0.10 }, // ongeveer E5
-        { freq: 784, delay: 0.20 }  // ongeveer G5
+        { freq: 880, delay: 0.00 }, // hoog A5
+        { freq: 660, delay: 0.12 }, // E5
+        { freq: 523, delay: 0.24 }  // C5
     ];
 
     notes.forEach(note => {
@@ -343,12 +343,12 @@
         osc.type = "sine";
         osc.frequency.setValueAtTime(note.freq, now + note.delay);
 
-        // Zachte, korte pling
         const startTime = now + note.delay;
-        const endTime = startTime + 0.35;
+        const endTime = startTime + 0.6; // langer aangehouden
 
+        // Zachtere aanslag + langere decay
         gain.gain.setValueAtTime(0.0, startTime);
-        gain.gain.linearRampToValueAtTime(0.35, startTime + 0.04);
+        gain.gain.linearRampToValueAtTime(0.22, startTime + 0.08); // was ~0.35 → nu zachter
         gain.gain.exponentialRampToValueAtTime(0.001, endTime);
 
         osc.connect(gain);
@@ -357,8 +357,7 @@
         osc.start(startTime);
         osc.stop(endTime);
     });
-}
-
+    }
 
     // Canvas grootte aanpassen aan beschikbare ruimte
     function resizeCanvas() {
