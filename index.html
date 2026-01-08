@@ -39,7 +39,7 @@
 
         #winnerDisplay {
             margin-top: 16px;
-            font-size: 6rem; /* ongeveer drie keer zo groot als 2rem */
+            font-size: 6rem;
             text-align: center;
             min-height: 1.2em;
             padding: 8px 16px;
@@ -96,7 +96,7 @@
         }
 
         .control-group {
-            border: 1px solid #333333;
+            border: 1px mondig #333333;
             border-radius: 8px;
             padding: 10px;
             background: #111111;
@@ -104,7 +104,7 @@
 
         .control-group label {
             font-size: 0.9rem;
-            display: block;
+            display: blok;
             margin-bottom: 4px;
         }
 
@@ -269,7 +269,7 @@
 
     let lastIndexAtPointer = -1;
 
-    // Audio voor ratelgeluid
+    // Audio voor ratelgeluid en pling
     let audioCtx = null;
 
     function initAudioContext() {
@@ -283,7 +283,7 @@
         }
     }
 
-    // Meer percussief, ratelend tikje per partje
+    // Ratel per partje
     function playTickSound() {
         if (!soundEnabled) return;
         if (!audioCtx) {
@@ -301,7 +301,6 @@
 
         for (let i = 0; i < frameCount; i++) {
             const t = i / frameCount;
-            // witte ruis met snelle envelope, geeft een 'tik'
             const envelope = Math.pow(1 - t, 3);
             data[i] = (Math.random() * 2 - 1) * envelope * 0.8;
         }
@@ -318,6 +317,37 @@
         gain.connect(audioCtx.destination);
 
         source.start();
+    }
+
+    // Zachte pling bij de winnaar
+    function playWinSound() {
+        if (!soundEnabled) return;
+        if (!audioCtx) {
+            initAudioContext();
+            if (!audioCtx) {
+                return;
+            }
+        }
+
+        const now = audioCtx.currentTime;
+        const duration = 0.5;
+
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(1400, now);
+        osc.frequency.exponentialRampToValueAtTime(2000, now + duration * 0.7);
+
+        gain.gain.setValueAtTime(0.0, now);
+        gain.gain.linearRampToValueAtTime(0.5, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + duration);
     }
 
     // Canvas grootte aanpassen aan beschikbare ruimte
@@ -360,7 +390,6 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (names.length === 0) {
-            // Geen namen, alleen rand
             ctx.save();
             ctx.translate(centerX, centerY);
             ctx.beginPath();
@@ -391,7 +420,6 @@
             const startAngle = i * segmentAngle - segmentAngle / 2 + rotation;
             const endAngle = startAngle + segmentAngle;
 
-            // Kleuren voor actieve segmenten
             let fillColor;
             if (nameEntry.disabled) {
                 fillColor = "#555555";
@@ -412,7 +440,6 @@
             ctx.lineWidth = 2;
             ctx.stroke();
 
-            // Naam tekenen
             const midAngle = (startAngle + endAngle) / 2;
             const textRadius = radius * 0.65;
 
@@ -421,13 +448,12 @@
 
             ctx.save();
             ctx.translate(textX, textY);
-            ctx.rotate(midAngle); // laat de tekst meedraaien met het segment
+            ctx.rotate(midAngle);
 
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillStyle = "#000000";
 
-            // Dynamische lettergrootte voor betere leesbaarheid
             const fontSize = Math.max(16, Math.floor(radius * 0.12));
             ctx.font = "bold " + fontSize + "px system-ui";
 
@@ -443,24 +469,26 @@
         drawPointer();
     }
 
-    // Wijzer aan de rechterkant, duidelijk groter en goudkleurig
+    // Grote, dikke, goudkleurige pijl die naar de gekozen naam wijst
     function drawPointer() {
         ctx.save();
         ctx.translate(centerX, centerY);
 
-        const pointerLength = 90;
-        const pointerWidth = 50;
+        const pointerLength = radius * 0.55;
+        const pointerWidth = radius * 0.35;
+
+        const baseX = radius * 0.65;
 
         ctx.beginPath();
-        ctx.moveTo(radius + 16, 0);
-        ctx.lineTo(radius + 16 + pointerLength, -pointerWidth / 2);
-        ctx.lineTo(radius + 16 + pointerLength, pointerWidth / 2);
+        ctx.moveTo(baseX, 0);
+        ctx.lineTo(baseX + pointerLength, -pointerWidth / 2);
+        ctx.lineTo(baseX + pointerLength, pointerWidth / 2);
         ctx.closePath();
 
-        ctx.fillStyle = "#ffd700"; // goudkleurig
+        ctx.fillStyle = "#ffd700";
         ctx.fill();
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.stroke();
 
         ctx.restore();
@@ -505,15 +533,14 @@
         const chosenIndex = activeIndices[Math.floor(Math.random() * activeIndices.length)];
         const segmentAngle = (Math.PI * 2) / names.length;
 
-        // Doelrotatie zodat de gekozen index bij de wijzer uitkomt
         const targetCenterAngle = -chosenIndex * segmentAngle;
-        const extraTurns = 6 + Math.floor(Math.random() * 4); // 6 tot en met 9 extra rondes
+        const extraTurns = 6 + Math.floor(Math.random() * 4);
         const targetRotation = targetCenterAngle - extraTurns * Math.PI * 2;
 
         const startRotation = rotation;
         const rotationChange = targetRotation - startRotation;
 
-        const duration = 4500 + Math.random() * 2000; // 4.5 tot 6.5 seconden
+        const duration = 4500 + Math.random() * 2000;
         const startTime = performance.now();
 
         lastIndexAtPointer = indexAtPointer(rotation);
@@ -532,7 +559,6 @@
 
             const currentIndex = indexAtPointer(rotation);
             if (currentIndex !== lastIndexAtPointer) {
-                // Iedere keer dat we een segmentgrens passeren tikt het wijzertje
                 playTickSound();
                 lastIndexAtPointer = currentIndex;
             }
@@ -557,6 +583,8 @@
         const winnerDisplay = document.getElementById("winnerDisplay");
         winnerDisplay.textContent = winner.name;
 
+        playWinSound();
+
         if (autoDisable && !winner.disabled) {
             winner.disabled = true;
             updateStatusLabel();
@@ -574,14 +602,13 @@
         const distance = Math.sqrt(x * x + y * y);
 
         if (distance > radius) {
-            return; // buiten het rad
+            return;
         }
 
-        const angle = Math.atan2(y, x); // in canvascoordinaten
+        const angle = Math.atan2(y, x);
         const n = names.length;
         const segmentAngle = (Math.PI * 2) / n;
 
-        // Terugrekenen naar hoek in radcoordinaten
         let relativeAngle = angle - rotation;
         if (relativeAngle < 0) {
             relativeAngle += Math.PI * 2;
@@ -712,7 +739,6 @@
             alert("Gekozen rad kon niet worden geladen.");
             return;
         }
-        // Diepe kopie van namen
         names = wheel.names.map(n => ({
             name: String(n.name),
             disabled: Boolean(n.disabled)
@@ -731,12 +757,10 @@
         window.addEventListener("resize", resizeCanvas);
         canvas.addEventListener("click", onCanvasClick);
 
-        // Grote draaiknop
         document.getElementById("spinButton").addEventListener("click", function () {
             spinWheel();
         });
 
-        // Enter toets om te draaien, behalve als je in een invoerveld zit
         document.addEventListener("keydown", function (e) {
             if (e.key === "Enter") {
                 const active = document.activeElement;
